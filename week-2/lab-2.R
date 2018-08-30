@@ -212,3 +212,8 @@ stdBray <- sd(colBray)
 threeSD <- stdBray * 3 + mBray
 hist(colBray)
 colBray[colBray>threeSD]
+
+rm(list=ls())
+# redoing with a subset of the portal data
+
+library(portalr)
