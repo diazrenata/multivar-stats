@@ -5,7 +5,7 @@ birds2 <- read.csv('week-4/combined_birds.csv', row = 1,
 tree <- read.csv('week-4/tree.csv', row = 1, header = T)
 
 library(vegan)
-library('ca')
+library(ca)
 
 #### PCoordinatesA ####
 
