@@ -73,8 +73,28 @@ darling.pc$loadings
 
 darling.kop$centers
 # center for wing area is .599 for cluster 1 and -.84 for cluster 2.
-mean(darling[which(darling.kop$cluster == 1),'wingarea'])
-mean(darling[which(darling.kop$cluster == 2),'wingarea'])
+
+# untransform the centers
+centers_back <- darling.kop$centers
+centers_back <- exp(centers_back) - 1
+centers_back
+
+darling <- cbind(darling, darling.kop$cluster)
+colnames(darling)[11] <- 'cluster'
+
+darlingraw <-read.csv("project-1/Darlingtonia.csv", header = T,
+                      stringsAsFactors = F, row.names =1 )
+
+darlingraw <- cbind(darlingraw, darling.kop$cluster)
+colnames(darlingraw)[11] <- 'cluster'
+darlingraw <- darlingraw %>%
+  select(wingarea, cluster) %>%
+  group_by(cluster) %>%
+  summarize(mean = mean(wingarea))
+
+darlingraw
+# mean for wingarea are 30.2 and 13.3 for clusters 1 and 2, respectively.
+
 
 # MRPP
 groups <- darling.kop$cluster
@@ -159,9 +179,7 @@ boot1 <- pvclust(t(dunes), method.hclust = "average", method.dist = "binary",
 plot(boot1)
 pvrect(boot1, alpha = 0.95, pv = "au")
 
-# it looks like only 1 cluster emerges - but doesn't that mean 2 clusters?
-# ASK BEN
-
+# two clusters emerge (possibly depending on seed)
 #### Polythetic Divisive Hierarchical Clustering ####
 
 diTree <- diana(distDunes)
