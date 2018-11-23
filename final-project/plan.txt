@@ -1,0 +1,10 @@
+year | winter_pcoa1 | winter_pcoa2 | summer_pcoa1 | da | dm | pp |
+
+>> redundancy
+>> | by year or leave year as constraint
+pcoa on plants
+use as variables for
+distance based redundancy analysis
+var partitioning to pull out contributions of year, plants
+
+also try getting lda topics for plants? Messssy
