@@ -33,13 +33,6 @@ store_rodent_data <- function(){
     left_join(plots_history, by = c('year', 'month', 'period', 'plot')) %>%
     filter(treatment == 'control')
   
-  rodents_summer <- rodents_control %>%
-    filter(month %in% c(4:9))
-  
-  rodents_winter <- rodents_control %>%
-    filter(month %in% c(1:3, 10:12))
-  
-  write.csv(rodents_summer, 'final-project/data/summer-rodents-raw.csv', row.names = F)
-  write.csv(rodents_winter, 'final-project/data/winter-rodents-raw.csv', row.names = F)
-  
+  write.csv(rodents_control, 'final-project/data/rodents-raw.csv', row.names = F)
+
 }

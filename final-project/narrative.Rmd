@@ -1,0 +1,31 @@
+---
+title: "Multivar stats final project"
+author: "Renata Diaz"
+date: "11/23/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project plan
+
+1. Get data
+    a. load Portal rodent and plant data
+    b. summarize by year
+    c. standardize according to trapping/survey effort
+2. Reduce dimensionality of plant data
+    a. try LDA
+        1. If base LDA doesn't work, try removing 5% most/least common species
+    b. pcoa
+    c. separate winter/summer censuses a priori?
+3. Distance based redundancy analysis
+    a. try to use plant summary axes to predict rodent community
+    b. (?) Use LDA rodent topics as ind variable?
+4. Variance partitioning to isolate effects of year, plants on rodents
+
+## Get data
+
+### Load plant data
+

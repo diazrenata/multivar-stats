@@ -1,4 +1,4 @@
-run_LDA <- function(community_data, topics_vector = 2:20, nseeds = 200, ncores = 4){
+run_LDA <- function(community_data, topics_vector = 2:12, nseeds = 200, ncores = 4){
   
   #### Run LDAs ####
   LDA_models = LDATS::parLDA(data =community_data, ntopics =  topics_vector,

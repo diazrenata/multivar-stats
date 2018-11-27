@@ -1,5 +1,6 @@
 
-store_adjusted_data <- function(rodent_data, plant_data, season){ 
+store_adjusted_data <- function(plant_data, rodent_data = NULL, focal_type, season = NULL){ 
+  if(focal_type == "rodent") {
   rodent_data <- rodent_data %>%
     select(-month, -treatment) %>%
     filter(year %in% plant_data$year)
@@ -25,6 +26,11 @@ store_adjusted_data <- function(rodent_data, plant_data, season){
     ungroup() %>%
     tidyr::spread('species', 'adjusted_total', fill = 0)
   
+  write.csv(rodent_data_adjusted, 'final-project/data/rodents-adjusted.csv',
+            row.names = F)
+  }
+  
+  if(focal_type == 'plant') {
   plant_data_effort <- plant_data %>%
     select(year, plot, quads) %>%
     distinct() %>%
@@ -42,12 +48,10 @@ store_adjusted_data <- function(rodent_data, plant_data, season){
     select(year, species, adjusted_n) %>%
     tidyr::spread(species, adjusted_n, fill = 0)
   
-  
-  write.csv(rodent_data_adjusted, paste0('final-project/data/', season,
-                                         '-rodents-adjusted.csv'),
-            row.names = F)
   write.csv(plant_data_adjusted, paste0('final-project/data/', season,
-                                         '-plants-adjusted.csv'),
-            row.names = F)
+                                        '-plants-adjusted.csv'), row.names = F)
+  }
+  
+  
   
 }
