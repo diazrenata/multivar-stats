@@ -69,81 +69,94 @@ filter(species, maximum < 25)
 rm(list=ls())
 
 #### PCoA ####
+source('final-project/R/run_pcoa.R')
 summer_plants <- read.csv('final-project/data/summer-plants-adjusted.csv', 
                           stringsAsFactors = F)
 
-summer_plants <- summer_plants %>%
+run_pcoa(summer_plants, season = 'Summer')
+
+winter_plants <- read.csv('final-project/data/winter-plants-adjusted.csv', 
+                          stringsAsFactors = F)
+
+run_pcoa(winter_plants, season = 'Winter')
+
+# looks like first 3 axes are the most useful ones?
+
+rm(list=ls())
+
+#### RDA #### 
+
+rodents <- read.csv('final-project/data/rodents-adjusted.csv', 
+                    stringsAsFactors = F)
+
+summer_axes <- read.csv('final-project/models/Summer_pcoa_vals.csv', 
+                        stringsAsFactors = F)
+summer_axes <- summer_axes[,1:4]
+
+winter_axes <- read.csv('final-project/models/Winter_pcoa_vals.csv',
+                        stringsAsFactors = F)
+winter_axes <- winter_axes[,1:4]
+
+pred_vals <- inner_join(winter_axes, summer_axes, by = 'year')
+
+rodents <- filter(rodents, year %in% pred_vals$year) %>%
   select(-year)
+rodents_hel <- decostand(rodents, 'hellinger')
 
-species <- colnames(summer_plants)
-species <- as.data.frame(species)
-species$maximum <- 0
-for(i in 1:nrow(species)){
-  species$maximum[i] <- max(summer_plants[,i], na.rm = T)
-}
+rodents.rda <- rda(rodents_hel ~ ., pred_vals)
 
-summer_plants <- summer_plants %>%
-  select(which(species$maximum >= 50))
+# unadjusted and adjusted r2
+R2 <- RsquareAdj(rodents.rda)$r.squared
+R2adj <- RsquareAdj(rodents.rda)$adj.r.squared
 
-birds <- read.csv('week-4/Current_Hawaiian_Birds.csv', row = 1,
-                  header = T)
-birds2 <- read.csv('week-4/combined_birds.csv', row = 1,
-                   header = T)
-tree <- read.csv('week-4/tree.csv', row = 1, header = T)
+# plot w f scores
+plot(rodents.rda, scaling = 1, main = "Triplot RDA rodents.rda ~ pred_vals - scaling 1 - w a scores")
+spe.sc <- scores(spe.rda, choices = 1:2, scaling = 1, display = "sp")
+arrows(0, 0, spe.sc[,1], spe.sc[,2], length = 0, lty = 1, col = 'red')
 
-library(vegan)
-library(ca)
+# plot w z scores
+plot(rodents.rda, scaling = 1, display = c("sp", "lc", "cn"), main = "Triplot RDA spe.hel ~ env2 - scaling 1 - lc scores")
+arrows(0, 0, spe.sc[, 1], spe.sc[, 2], length = 0, lty = 1, col = "red")
 
-#### PCoordinatesA ####
-
-# Bray-curtis index on current birds data
-# this is the same as sorenson's, if used with 1 and 0
-jbirds <- vegdist(birds, 'bray')
-
-cmd <- cmdscale(jbirds, k = 5, eig = T)
-
-str(cmd)
-cmd$points
-
-# PCoordinatesA table to look at the eigenvalues
-# and the proportion of variance they capture
-
-eigenvalues <- cmd$eig[1:5]
-propVar <- eigenvalues/sum(eigenvalues)
-cumVar <- cumsum(propVar)
-PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
-PCoA_Table
+anova(rodents.rda, step = 1000)
+anova(rodents.rda, by = "axis", step = 1000)
 
 
-# Scree plot:
-plot(eigenvalues)
-lines(lowess(eigenvalues))
+# Reduce the number of variables for the most parsimonious model.
 
-# if it's not totally intractable, I'd keep 3 axes
-# to explain a cumulative 91% of variance
+set.seed(11)
+step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents.rda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
 
-# Plotting the first two PCoA axes
+# Most parsimonious is Call: rodents_hel ~ Winter 1 + year + Summer 2 + Winter 2 
 
-x <- cmd$points[,1]
-y <- cmd$points[,2]
-plot(x, y, xlab = 'Coord 1', ylab = 'Coord 2',
-     xlim = range(x) * 1.2, 
-     ylim = range(y) * 1.2, 
-     type = 'n')
-text(x,y, labels = rownames(cmd$points), cex = 0.9)
+rod.rda.pars <- rda(rodents_hel ~ WinterPCoAxis_1 + year + SummerPCoAxis_2 + WinterPCoAxis_2 + SummerPCoAxis_1 , pred_vals)
+
+R2p <- RsquareAdj(rod.rda.pars)$r.squared
+R2adjp <- RsquareAdj(rod.rda.pars)$adj.r.squared
+
+# plot w f scores
+plot(rod.rda.pars, scaling = 1, main = "Triplot")
+spe.sc.p <- scores(rod.rda.pars, choices = 1:2, scaling = 1, display = "sp")
+arrows(0, 0, spe.sc.p[,1], spe.sc.p[,2], length = 0, lty = 1, col = 'red')
+
+# plot w z scores
+plot(rod.rda.pars, scaling = 1, display = c("sp", "lc", "cn"), main = "Triplot RDA spe.hel ~ alt + oxy + dbo, env2 - scaling 1 - lc scores")
+arrows(0, 0, spe.sc.p[, 1], spe.sc.p[, 2], length = 0, lty = 1, col = "red")
+
+anova(rod.rda.pars, step = 1000)
+anova(rod.rda.pars, by = "axis", step = 1000)
 
 
-# Another (kind of terrifyingly messy) way to plot
+# Partial RDA
 
+partial.alt <- rda(rodents_hel ~ year + Condition(WinterPCoAxis_1  + SummerPCoAxis_2 + WinterPCoAxis_2 + SummerPCoAxis_1), data = pred_vals)
+anova(partial.alt, step = 1000)
 
-ordiplot(scores(cmd)[, c(1, 2)], type = "t", cex = 1, main = "Hawaiian Bird PCoA")
-## species scores not available
-abline(h = 0, lty = 3)
-abline(v = 0, lty = 3)
+# Variance partitioning
+??varpart
+rod_part <- varpart(rodents_hel, ~WinterPCoAxis_1, ~SummerPCoAxis_2, ~WinterPCoAxis_2, ~SummerPCoAxis_1, data = pred_vals)
+rod_part
 
-# Add species
-`?`(wascores)
-
-species <- wascores(cmd$points[, 1:2], birds)
-text(species, rownames(species), cex = 0.7, col = "red")
-
+plot(rod_part, digits = 2)
+# WinterPCoAxis_1 has the largetst chunk (.4)
