@@ -7,6 +7,10 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(vegan)
+library(ca)
+  
 ```
 
 ## Project plan
@@ -27,5 +31,183 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Get data
 
-### Load plant data
+### Plant data
+* Extracted summer & winter plant censuses for all years 
+* Standardized plant abundances according to sampling effort
+* Kept seasons separate
 
+### Rodent data
+* Rodent censuses on control plots for all years, restricted to granivores
+* Standardized according to sampling effort (per census period)
+* Summed across all months in each calendar year
+
+## PCoA
+
+* Ran separate principle coordinates analyses on winter and summer datasets.
+
+### Summer PCoA
+
+```{r summer pcoa, echo = T} 
+summer_plants <- read.csv('data/summer-plants-adjusted.csv',
+                          stringsAsFactors = F)
+
+summer_dist_mat <- vegdist(summer_plants[,2:ncol(summer_plants)], 'bray')
+  
+summer_pcoa <- cmdscale(summer_dist_mat, k = nrow(summer_plants) - 1, eig = T)
+  
+# Proportion of variance table 
+  eigenvalues <- summer_pcoa$eig[1:nrow(summer_plants)-1]
+  propVar <- eigenvalues/sum(eigenvalues)
+  cumVar <- cumsum(propVar)
+  Summer_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+  
+  Summer_PCoA_Table
+  
+  
+# Scree plot:
+  plot(eigenvalues)
+  lines(lowess(eigenvalues))
+  
+
+```
+
+
+There seems to be an inflection point in the scree plot around axis 3. 
+
+Moving forward, keeping the first 3 axes as predictor variables for the rodent community. 
+
+```{r save summer axes, echo = F}
+summer_vals <- cbind(summer_plants$year, summer_pcoa$points[,1:3])
+  
+  season_names <- rep("SummerPCoAxis_", 3) %>%
+    paste0(1:3)
+  season_names <- c('year', season_names)
+  colnames(summer_vals) <- season_names
+  
+  
+  write.csv(summer_vals, 'models/summer_pcoa_vals_3.csv', row.names = F)
+ 
+```
+
+### Winter PCoA
+
+```{r winter pcoa, echo = T} 
+winter_plants <- read.csv('data/winter-plants-adjusted.csv',
+                          stringsAsFactors = F)
+
+winter_dist_mat <- vegdist(winter_plants[,2:ncol(winter_plants)], 'bray')
+  
+winter_pcoa <- cmdscale(winter_dist_mat, k = nrow(winter_plants) - 1, eig = T)
+  
+# Proportion of variance table 
+  eigenvalues <- winter_pcoa$eig[1:nrow(winter_plants)-1]
+  propVar <- eigenvalues/sum(eigenvalues)
+  cumVar <- cumsum(propVar)
+  winter_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+  
+  winter_PCoA_Table
+  
+  
+# Scree plot:
+  plot(eigenvalues)
+  lines(lowess(eigenvalues))
+  
+
+```
+
+
+There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 39% of variation, going to go for 3. 
+
+
+```{r save winter axes, echo = F}
+winter_vals <- cbind(winter_plants$year, winter_pcoa$points[,1:3])
+  
+  season_names <- rep("WinterPCoAxis_", 3) %>%
+    paste0(1:3)
+  season_names <- c('year', season_names)
+  colnames(winter_vals) <- season_names
+  
+  
+  write.csv(winter_vals, 'models/winter_pcoa_vals_3.csv', row.names = F)
+ 
+  rm(list=ls())
+```
+
+## RDA
+
+Redundancy analysis, using combined winter and summer axes and year to predict the rodent community.
+ 
+Restricted to years with both a winter & summer census (n = 27).
+
+``` {r RDA, echo = T}
+
+rodents <- read.csv('data/rodents-adjusted.csv', 
+                    stringsAsFactors = F)
+
+summer_axes <- read.csv('models/Summer_pcoa_vals_3.csv', 
+                        stringsAsFactors = F)
+
+winter_axes <- read.csv('models/Winter_pcoa_vals_3.csv',
+                        stringsAsFactors = F)
+
+
+pred_vals <- inner_join(winter_axes, summer_axes, by = 'year')
+
+rodents <- filter(rodents, year %in% pred_vals$year) %>%
+  select(-year)
+
+rodents_hel <- decostand(rodents, 'hellinger')
+
+rodents_rda <- rda(rodents_hel ~ ., pred_vals)
+
+R2 <- RsquareAdj(rodents_rda)$r.squared
+R2adj <- RsquareAdj(rodents_rda)$adj.r.squared
+
+R2
+R2adj
+
+
+anova(rodents_rda, step = 1000)
+anova(rodents_rda, by = "axis", step = 1000)
+
+
+```
+
+Find the most parsimonious model...
+
+```{r reduce vars, echo = T}
+
+set.seed(11)
+step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_rda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
+
+# Most parsimonious is Call: rodents_hel ~ Winter 1 + year + Summer 2 + Winter 2 
+
+rod_rda_pars <- rda(rodents_hel ~ WinterPCoAxis_1 + year + SummerPCoAxis_2 + WinterPCoAxis_2 + SummerPCoAxis_1 , pred_vals)
+
+R2p <- RsquareAdj(rod_rda_pars)$r.squared
+R2adjp <- RsquareAdj(rod_rda_pars)$adj.r.squared
+
+R2p
+R2adjp
+
+
+anova(rod_rda_pars, step = 1000)
+anova(rod_rda_pars, by = "axis", step = 1000)
+
+
+```
+
+## Variance partitioning
+
+```{r var part, echo = T}
+# Variance partitioning
+rod_part <- varpart(rodents_hel, ~WinterPCoAxis_1, ~SummerPCoAxis_2, ~WinterPCoAxis_2, ~SummerPCoAxis_1, data = pred_vals)
+rod_part
+
+plot(rod_part, digits = 2)
+```
+
+WinterPCoAxis_1 has the largest chunk (.4)
+
+_look more at composition of pc axes!_
