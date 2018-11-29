@@ -69,6 +69,17 @@ summer_pcoa <- cmdscale(summer_dist_mat, k = nrow(summer_plants) - 1, eig = T)
   lines(lowess(eigenvalues))
   
 
+ordiplot(scores(summer_pcoa)[, c(1, 2)], type = "n", cex = 1, main = "Summer plant PCoA")
+## species scores not available
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+# Add species
+`?`(wascores)
+
+species_pc <- wascores(summer_pcoa$points[, 1:2], summer_plants)
+text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
+
 ```
 
 
@@ -88,6 +99,9 @@ summer_vals <- cbind(summer_plants$year, summer_pcoa$points[,1:3])
   write.csv(summer_vals, 'models/summer_pcoa_vals_3.csv', row.names = F)
  
 ```
+
+Look at axis composition:
+
 
 ### Winter PCoA
 
@@ -113,6 +127,16 @@ winter_pcoa <- cmdscale(winter_dist_mat, k = nrow(winter_plants) - 1, eig = T)
   lines(lowess(eigenvalues))
   
 
+ordiplot(scores(winter_pcoa)[, c(1, 2)], type = "n", cex = 1, main = "Winter plant PCoA")
+## species scores not available
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+# Add species
+`?`(wascores)
+
+species_pc <- wascores(winter_pcoa$points[, 1:2], winter_plants)
+text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
 ```
 
 
@@ -132,6 +156,9 @@ winter_vals <- cbind(winter_plants$year, winter_pcoa$points[,1:3])
  
   rm(list=ls())
 ```
+
+
+
 
 ## RDA
 
