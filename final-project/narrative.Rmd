@@ -61,25 +61,13 @@ summer_pcoa <- cmdscale(summer_dist_mat, k = nrow(summer_plants) - 1, eig = T)
   cumVar <- cumsum(propVar)
   Summer_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
   
-  Summer_PCoA_Table
+  Summer_PCoA_Table[1:15,]
   
   
 # Scree plot:
   plot(eigenvalues)
   lines(lowess(eigenvalues))
   
-
-ordiplot(scores(summer_pcoa)[, c(1, 2)], type = "n", cex = 1, main = "Summer plant PCoA")
-## species scores not available
-abline(h = 0, lty = 3)
-abline(v = 0, lty = 3)
-
-# Add species
-`?`(wascores)
-
-species_pc <- wascores(summer_pcoa$points[, 1:2], summer_plants)
-text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
-
 ```
 
 
@@ -100,7 +88,6 @@ summer_vals <- cbind(summer_plants$year, summer_pcoa$points[,1:3])
  
 ```
 
-Look at axis composition:
 
 
 ### Winter PCoA
@@ -119,7 +106,7 @@ winter_pcoa <- cmdscale(winter_dist_mat, k = nrow(winter_plants) - 1, eig = T)
   cumVar <- cumsum(propVar)
   winter_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
   
-  winter_PCoA_Table
+  winter_PCoA_Table[1:15,]
   
   
 # Scree plot:
@@ -133,7 +120,6 @@ abline(h = 0, lty = 3)
 abline(v = 0, lty = 3)
 
 # Add species
-`?`(wascores)
 
 species_pc <- wascores(winter_pcoa$points[, 1:2], winter_plants)
 text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
@@ -154,9 +140,19 @@ winter_vals <- cbind(winter_plants$year, winter_pcoa$points[,1:3])
   
   write.csv(winter_vals, 'models/winter_pcoa_vals_3.csv', row.names = F)
  
-  rm(list=ls())
 ```
 
+Look at axis composition:
+
+
+```{r winter PC scores}
+
+winter_pc <- wascores(winter_pcoa$points[, 1:3], winter_plants)
+winter_pc
+
+  rm(list=ls())
+
+```
 
 
 
@@ -237,4 +233,11 @@ plot(rod_part, digits = 2)
 
 WinterPCoAxis_1 has the largest chunk (.4)
 
-_look more at composition of pc axes!_
+### Years - rodents comparison
+
+```{r plot winter pcoa1 v year}
+
+plot(pred_vals$year, pred_vals$WinterPCoAxis_1)
+abline(v = 1990, col = 'red')
+
+```
