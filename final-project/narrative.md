@@ -3,29 +3,20 @@ Multivar stats final project
 Renata Diaz
 11/23/2018
 
-Project plan
-------------
-
-1.  Get data
-    1.  load Portal rodent and plant data
-    2.  summarize by year
-    3.  standardize according to trapping/survey effort
-
-2.  Reduce dimensionality of plant data
-    1.  try LDA
-        1.  If base LDA doesn't work, try removing 5% most/least common species
-
-    2.  pcoa
-    3.  separate winter/summer censuses a priori?
-
-3.  Distance based redundancy analysis
-    1.  try to use plant summary axes to predict rodent community
-    2.  (?) Use LDA rodent topics as ind variable?
-
-4.  Variance partitioning to isolate effects of year, plants on rodents
-
 Get data
 --------
+
+-   Download rodent and plant data from the Portal Project repo:
+
+``` r
+source('R/store_rodent_data.R')
+source('R/store_plant_data.R')
+
+store_rodent_data(treatment = 'control')
+store_plant_data()
+```
+
+Adjust data to compensate for irregular trapping and census effort.
 
 ### Plant data
 
@@ -39,27 +30,51 @@ Get data
 -   Standardized according to sampling effort (per census period)
 -   Summed across all months in each calendar year
 
+``` r
+control_rodents <- read.csv('final-project/data/control-rodents-raw.csv', 
+                    stringsAsFactors = F)
+
+summer_plants_c <- read.csv('final-project/data/summer-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+winter_plants_c <- read.csv('final-project/data/winter-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+all_plants_c <- rbind(summer_plants_c, winter_plants_c)
+
+store_adjusted_data(plant_data = all_plants_c, rodent_data = control_rodents,
+                    focal_type = 'rodent', treatment = 'control')
+
+store_adjusted_data(plant_data = summer_plants_c, focal_type = 'plant',
+                    season = 'summer', treatment = 'control')
+store_adjusted_data(plant_data = winter_plants_c, focal_type = 'plant',
+                    season = 'winter', treatment = 'control')
+
+summer_plants_e <- read.csv('final-project/data/summer-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+winter_plants_e <- read.csv('final-project/data/winter-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+all_plants_e <- rbind(summer_plants_e, winter_plants_e)
+
+
+store_adjusted_data(plant_data = summer_plants_e, focal_type = 'plant',
+                    season = 'summer', treatment = 'exclosure')
+store_adjusted_data(plant_data = winter_plants_e, focal_type = 'plant',
+                    season = 'winter', treatment = 'exclosure')
+
+
+rm(list=ls())
+```
+
 PCoA
 ----
 
--   Ran separate principle coordinates analyses on winter and summer datasets.
+-   Transformed raw abundance values using the Wisconsin transformation, and then created a Bray-Curtis dissimilarity matrix for each community.
+-   Ran PCoA on the dissimilarity matrices, separately for each community.
 
 ### Summer PCoA
 
 ``` r
 summer_plants_c <- read.csv('data/summer-control-plants-adjusted.csv',
                           stringsAsFactors = F)
-
-summer_zeros <- read.csv('data/summer-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(summer_plants_c), colnames(summer_zeros))
-summer_zeros <- summer_zeros %>%
-  filter(year %in% summer_plants_c$year) %>%
-  select(-rmcols)
-summer_zeros <- 0*(summer_zeros)
-
-summer_plants_c <- cbind(summer_plants_c, summer_zeros)
 
 summer_plants_c_wis <- vegan::wisconsin(summer_plants_c[,2:ncol(summer_plants_c)])
 
@@ -135,18 +150,6 @@ Moving forward, keeping the first 3 axes as predictor variables for the rodent c
 winter_plants_c <- read.csv('data/winter-control-plants-adjusted.csv',
                           stringsAsFactors = F)
 
-
-winter_zeros <- read.csv('data/winter-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(winter_plants_c), colnames(winter_zeros))
-winter_zeros <- winter_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_zeros <- 0*(winter_zeros)
-
-winter_plants_c <- cbind(winter_plants_c, winter_zeros)
-
 winter_plants_c_wis <- vegan::wisconsin(winter_plants_c[,2:ncol(winter_plants_c)])
 
 
@@ -212,14 +215,19 @@ text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
 
 ![](narrative_files/figure-markdown_github/winter%20pcoa-2.png)
 
-There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 39% of variation, going to go for 3.
+There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 35% of variation, going to go for 3.
 
-RDA
----
+-   Saved the first three axes for both PCoAs.
+-   Use these six axes, and year, as predictor values for RDA.
 
-Redundancy analysis, using combined winter and summer axes and year to predict the rodent community.
+Partial RDA
+-----------
+
+Partial redundancy analysis, using combined winter and summer axes, conditioned on year, to predict the rodent community.
 
 Restricted to years with both a winter & summer census (n = 27).
+
+Used rodent data, summarized yearly, transformed via Hellinger transformation.
 
 ``` r
 rodents <- read.csv('data/rodents-adjusted.csv', 
@@ -237,8 +245,202 @@ pred_vals <- inner_join(winter_axes, summer_axes, by = 'year')
 rodents <- filter(rodents, year %in% pred_vals$year) %>%
   select(-year)
 
+pred_vals_noy <- select(pred_vals, -year)
+pred_vals_y <- select(pred_vals, year)
+
 rodents_hel <- decostand(rodents, 'hellinger')
 
+rodents_prda <- rda(rodents_hel ~ . + Condition(pred_vals_y$year), pred_vals_noy)
+
+R2 <- RsquareAdj(rodents_prda)$r.squared
+R2adj <- RsquareAdj(rodents_prda)$adj.r.squared
+
+R2
+```
+
+    ## [1] 0.3373328
+
+``` r
+R2adj
+```
+
+    ## [1] NA
+
+``` r
+anova(rodents_prda, step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance      F Pr(>F)    
+    ## Model     6 0.060824 4.3367  0.001 ***
+    ## Residual 19 0.044414                  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+anova(rodents_prda, by = "axis", step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Forward tests for axes
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance       F Pr(>F)    
+    ## RDA1      1 0.038889 16.6367  0.001 ***
+    ## RDA2      1 0.013465  5.7604  0.002 ** 
+    ## RDA3      1 0.004915  2.1027  0.473    
+    ## RDA4      1 0.001929  0.8253  0.965    
+    ## RDA5      1 0.000995  0.4256  0.997    
+    ## RDA6      1 0.000630  0.2696  0.976    
+    ## Residual 19 0.044414                   
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Find the most parsimonious model...
+
+``` r
+set.seed(11)
+step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_prda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
+```
+
+    ## Step: R2.adj= 0 
+    ## Call: rodents_hel ~ 1 
+    ##  
+    ##                   R2.adjusted
+    ## + WinterPCoAxis_1 0.465049255
+    ## + SummerPCoAxis_1 0.206065354
+    ## + WinterPCoAxis_3 0.074648682
+    ## + WinterPCoAxis_2 0.069658749
+    ## + SummerPCoAxis_2 0.044966946
+    ## + SummerPCoAxis_3 0.004595451
+    ## <none>            0.000000000
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + WinterPCoAxis_1  1 -61.222 23.603  0.002 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.4650493 
+    ## Call: rodents_hel ~ WinterPCoAxis_1 
+    ##  
+    ##                   R2.adjusted
+    ## + WinterPCoAxis_3   0.5314926
+    ## + WinterPCoAxis_2   0.5312382
+    ## + SummerPCoAxis_2   0.5047420
+    ## + SummerPCoAxis_1   0.5043222
+    ## + SummerPCoAxis_3   0.4744154
+    ## <none>              0.4650493
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + WinterPCoAxis_3  1 -63.905 4.5455  0.002 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.5314926 
+    ## Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 
+    ##  
+    ##                   R2.adjusted
+    ## + WinterPCoAxis_2   0.6010456
+    ## + SummerPCoAxis_2   0.5776599
+    ## + SummerPCoAxis_1   0.5754796
+    ## + SummerPCoAxis_3   0.5437806
+    ## <none>              0.5314926
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + WinterPCoAxis_2  1 -67.393 5.1841  0.002 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.6010456 
+    ## Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 
+    ##  
+    ##                   R2.adjusted
+    ## + SummerPCoAxis_2   0.6356186
+    ## + SummerPCoAxis_3   0.6169246
+    ## + SummerPCoAxis_1   0.6054026
+    ## <none>              0.6010456
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + SummerPCoAxis_2  1 -69.041 3.1823  0.004 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.6356186 
+    ## Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 +      SummerPCoAxis_2 
+    ##  
+    ##                   R2.adjusted
+    ## + SummerPCoAxis_3   0.6531352
+    ## + SummerPCoAxis_1   0.6413473
+    ## <none>              0.6356186
+    ## 
+    ##                   Df     AIC     F Pr(>F)  
+    ## + SummerPCoAxis_3  1 -69.627 2.111  0.052 .
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+# Most parsimonious is Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 
+
+rod_prda_pars <- rda(rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + Condition(pred_vals_y$year), pred_vals_noy)
+
+pR2p <- RsquareAdj(rod_prda_pars)$r.squared
+pR2adjp <- RsquareAdj(rod_prda_pars)$adj.r.squared
+
+pR2p
+```
+
+    ## [1] 0.2739242
+
+``` r
+pR2adjp
+```
+
+    ## [1] NA
+
+``` r
+anova(rod_prda_pars, step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance      F Pr(>F)    
+    ## Model     3 0.049391 6.4856  0.001 ***
+    ## Residual 22 0.055847                  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+anova(rod_prda_pars, by = "axis", step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Forward tests for axes
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance       F Pr(>F)    
+    ## RDA1      1 0.037375 14.7233  0.001 ***
+    ## RDA2      1 0.010807  4.2571  0.002 ** 
+    ## RDA3      1 0.001209  0.4763  0.872    
+    ## Residual 22 0.055847                   
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Regular RDA
+-----------
+
+``` r
 rodents_rda <- rda(rodents_hel ~ ., pred_vals)
 
 R2 <- RsquareAdj(rodents_rda)$r.squared
@@ -283,11 +485,11 @@ anova(rodents_rda, by = "axis", step = 1000)
     ##          Df Variance       F Pr(>F)    
     ## RDA1      1 0.097911 41.8861  0.001 ***
     ## RDA2      1 0.020027  8.5676  0.001 ***
-    ## RDA3      1 0.010442  4.4669  0.021 *  
-    ## RDA4      1 0.004487  1.9196  0.543    
-    ## RDA5      1 0.001858  0.7949  0.974    
-    ## RDA6      1 0.000747  0.3196  0.999    
-    ## RDA7      1 0.000423  0.1808  0.999    
+    ## RDA3      1 0.010442  4.4669  0.029 *  
+    ## RDA4      1 0.004487  1.9196  0.549    
+    ## RDA5      1 0.001858  0.7949  0.972    
+    ## RDA6      1 0.000747  0.3196  0.998    
+    ## RDA7      1 0.000423  0.1808  0.996    
     ## Residual 19 0.044414                   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
@@ -389,7 +591,7 @@ step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formu
     ## + SummerPCoAxis_3   0.6658002
 
 ``` r
-# Most parsimonious is Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + SummerPCoAxis_2
+# Most parsimonious is rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 +  SummerPCoAxis_2 
 
 rod_rda_pars <- rda(rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + SummerPCoAxis_2, pred_vals)
 
@@ -441,17 +643,102 @@ anova(rod_rda_pars, by = "axis", step = 1000)
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-wisconsin trans on plant community data
-=======================================
-
-look @ contributions to plant community axes
-============================================
-
-look @ exclosures winter axes: krat effects
-===========================================
-
 Variance partitioning
 ---------------------
+
+``` r
+rod_ppart <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ pred_vals_y$year, data = pred_vals_noy)
+rod_ppart
+```
+
+    ## 
+    ## Partition of variance in RDA 
+    ## 
+    ## Call: varpart(Y = rodents_hel, X = ~WinterPCoAxis_1,
+    ## ~WinterPCoAxis_3, ~WinterPCoAxis_2, ~pred_vals_y$year, data =
+    ## pred_vals_noy)
+    ## 
+    ## Explanatory tables:
+    ## X1:  ~WinterPCoAxis_1
+    ## X2:  ~WinterPCoAxis_3
+    ## X3:  ~WinterPCoAxis_2
+    ## X4:  ~pred_vals_y$year 
+    ## 
+    ## No. of explanatory tables: 4 
+    ## Total variation (SS): 4.688 
+    ##             Variance: 0.18031 
+    ## No. of observations: 27 
+    ## 
+    ## Partition table:
+    ##                             Df R.square Adj.R.square Testable
+    ## [aeghklno] = X1              1  0.48562      0.46505     TRUE
+    ## [befiklmo] = X2              1  0.11024      0.07465     TRUE
+    ## [cfgjlmno] = X3              1  0.10544      0.06966     TRUE
+    ## [dhijkmno] = X4              1  0.41635      0.39300     TRUE
+    ## [abefghiklmno] = X1+X2       2  0.56753      0.53149     TRUE
+    ## [acefghjklmno] = X1+X3       2  0.56730      0.53124     TRUE
+    ## [adeghijklmno] = X1+X4       2  0.55999      0.52333     TRUE
+    ## [bcefgijklmno] = X2+X3       2  0.22476      0.16015     TRUE
+    ## [bdefhijklmno] = X2+X4       2  0.53151      0.49247     TRUE
+    ## [cdfghijklmno] = X3+X4       2  0.48101      0.43776     TRUE
+    ## [abcefghijklmno] = X1+X2+X3  3  0.64708      0.60105     TRUE
+    ## [abdefghijklmno] = X1+X2+X4  3  0.62608      0.57730     TRUE
+    ## [acdefghijklmno] = X1+X3+X4  3  0.62180      0.57247     TRUE
+    ## [bcdefghijklmno] = X2+X3+X4  3  0.58889      0.53527     TRUE
+    ## [abcdefghijklmno] = All      4  0.69027      0.63396     TRUE
+    ## Individual fractions                                         
+    ## [a] = X1 | X2+X3+X4          1               0.09869     TRUE
+    ## [b] = X2 | X1+X3+X4          1               0.06149     TRUE
+    ## [c] = X3 | X1+X2+X4          1               0.05665     TRUE
+    ## [d] = X4 | X1+X2+X3          1               0.03291     TRUE
+    ## [e]                          0               0.03601    FALSE
+    ## [f]                          0              -0.00751    FALSE
+    ## [g]                          0              -0.01385    FALSE
+    ## [h]                          0               0.34221    FALSE
+    ## [i]                          0               0.00832    FALSE
+    ## [j]                          0               0.01290    FALSE
+    ## [k]                          0              -0.01533    FALSE
+    ## [l]                          0               0.00947    FALSE
+    ## [m]                          0               0.00415    FALSE
+    ## [n]                          0               0.02980    FALSE
+    ## [o]                          0              -0.02195    FALSE
+    ## [p] = Residuals              0               0.36604    FALSE
+    ## Controlling 2 tables X                                       
+    ## [ae] = X1 | X3+X4            1               0.13470     TRUE
+    ## [ag] = X1 | X2+X4            1               0.08484     TRUE
+    ## [ah] = X1 | X2+X3            1               0.44089     TRUE
+    ## [be] = X2 | X3+X4            1               0.09751     TRUE
+    ## [bf] = X2 | X1+X4            1               0.05398     TRUE
+    ## [bi] = X2 | X1+X3            1               0.06981     TRUE
+    ## [cf] = X3 | X1+X4            1               0.04914     TRUE
+    ## [cg] = X3 | X2+X4            1               0.04280     TRUE
+    ## [cj] = X3 | X1+X2            1               0.06955     TRUE
+    ## [dh] = X4 | X2+X3            1               0.37512     TRUE
+    ## [di] = X4 | X1+X3            1               0.04123     TRUE
+    ## [dj] = X4 | X1+X2            1               0.04581     TRUE
+    ## Controlling 1 table X                                        
+    ## [aghn] = X1 | X2             1               0.45684     TRUE
+    ## [aehk] = X1 | X3             1               0.46158     TRUE
+    ## [aegl] = X1 | X4             1               0.13032     TRUE
+    ## [bfim] = X2 | X1             1               0.06644     TRUE
+    ## [beik] = X2 | X3             1               0.09049     TRUE
+    ## [befl] = X2 | X4             1               0.09947     TRUE
+    ## [cfjm] = X3 | X1             1               0.06619     TRUE
+    ## [cgjn] = X3 | X2             1               0.08550     TRUE
+    ## [cfgl] = X3 | X4             1               0.04476     TRUE
+    ## [dijm] = X4 | X1             1               0.05828     TRUE
+    ## [dhjn] = X4 | X2             1               0.41782     TRUE
+    ## [dhik] = X4 | X3             1               0.36811     TRUE
+    ## ---
+    ## Use function 'rda' to test significance of fractions of interest
+
+``` r
+plot(rod_ppart, digits = 2)
+```
+
+![](narrative_files/figure-markdown_github/partial%20variance%20partitioning-1.png)
+
+WinterPCoAxis\_1 combined with year has the largest chunk (.3); on its own, WinterPCoAxis\_1 explains an additional .1
 
 ``` r
 rod_part <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ SummerPCoAxis_2, data = pred_vals)
@@ -543,9 +830,15 @@ rod_part
 plot(rod_part, digits = 2)
 ```
 
-![](narrative_files/figure-markdown_github/partial-1.png)
+![](narrative_files/figure-markdown_github/regular%20variance%20partitioning-1.png)
 
-WinterPCoAxis\_1 has the largest chunk (.4)
+How strongly is summer axis 2 related to year?
+
+``` r
+plot(pred_vals$year, pred_vals$SummerPCoAxis_2)
+```
+
+![](narrative_files/figure-markdown_github/plot%20summer%20pcoa2%20v%20year-1.png)
 
 ### Years - rodents comparison
 
@@ -585,10 +878,23 @@ Let's look at that same PCOA axis in the *exclosures*...
 ``` r
 winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
                           stringsAsFactors = F)
+winter_plants_e <- winter_plants_e %>%
+  filter(year %in% winter_plants_c$year)
 
-winter_plants_e_wis <- vegan::wisconsin(winter_plants_e[,2:ncol(winter_plants_e)])
+winter_e_zeros <- winter_plants_c
 
+rmcols <- intersect(colnames(winter_plants_e), colnames(winter_e_zeros))
+winter_e_zeros <- winter_e_zeros %>%
+  filter(year %in% winter_plants_c$year) %>%
+  select(-rmcols)
+winter_e_zeros <- 0*(winter_e_zeros)
 
+winter_plants_e <- cbind(winter_plants_e, winter_e_zeros)
+
+winter_plants_e_reordered <- winter_plants_e %>%
+  select(colnames(winter_plants_c))
+
+winter_plants_e_wis <- vegan::wisconsin(winter_plants_e_reordered[,2:ncol(winter_plants_e_reordered)])
 
 
 

@@ -13,23 +13,20 @@ library(ca)
   
 ```
 
-## Project plan
-
-1. Get data
-    a. load Portal rodent and plant data
-    b. summarize by year
-    c. standardize according to trapping/survey effort
-2. Reduce dimensionality of plant data
-    a. try LDA
-        1. If base LDA doesn't work, try removing 5% most/least common species
-    b. pcoa
-    c. separate winter/summer censuses a priori?
-3. Distance based redundancy analysis
-    a. try to use plant summary axes to predict rodent community
-    b. (?) Use LDA rodent topics as ind variable?
-4. Variance partitioning to isolate effects of year, plants on rodents
 
 ## Get data
+
+* Download rodent and plant data from the Portal Project repo:
+
+```{r download data, eval = F}
+source('R/store_rodent_data.R')
+source('R/store_plant_data.R')
+
+store_rodent_data(treatment = 'control')
+store_plant_data()
+```
+
+Adjust data to compensate for irregular trapping and census effort.
 
 ### Plant data
 * Extracted summer & winter plant censuses for all years 
@@ -41,26 +38,52 @@ library(ca)
 * Standardized according to sampling effort (per census period)
 * Summed across all months in each calendar year
 
+
+```{r adjust data, eval = F}
+control_rodents <- read.csv('final-project/data/control-rodents-raw.csv', 
+                    stringsAsFactors = F)
+
+summer_plants_c <- read.csv('final-project/data/summer-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+winter_plants_c <- read.csv('final-project/data/winter-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+all_plants_c <- rbind(summer_plants_c, winter_plants_c)
+
+store_adjusted_data(plant_data = all_plants_c, rodent_data = control_rodents,
+                    focal_type = 'rodent', treatment = 'control')
+
+store_adjusted_data(plant_data = summer_plants_c, focal_type = 'plant',
+                    season = 'summer', treatment = 'control')
+store_adjusted_data(plant_data = winter_plants_c, focal_type = 'plant',
+                    season = 'winter', treatment = 'control')
+
+summer_plants_e <- read.csv('final-project/data/summer-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+winter_plants_e <- read.csv('final-project/data/winter-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+all_plants_e <- rbind(summer_plants_e, winter_plants_e)
+
+
+store_adjusted_data(plant_data = summer_plants_e, focal_type = 'plant',
+                    season = 'summer', treatment = 'exclosure')
+store_adjusted_data(plant_data = winter_plants_e, focal_type = 'plant',
+                    season = 'winter', treatment = 'exclosure')
+
+
+rm(list=ls())
+```
+
+
 ## PCoA
 
-* Ran separate principle coordinates analyses on winter and summer datasets.
+* Transformed raw abundance values using the Wisconsin transformation, and then created a Bray-Curtis dissimilarity matrix for each community.
+* Ran PCoA on the dissimilarity matrices, separately for each community. 
 
 ### Summer PCoA
 
 ```{r summer pcoa, echo = T} 
 summer_plants_c <- read.csv('data/summer-control-plants-adjusted.csv',
                           stringsAsFactors = F)
-
-summer_zeros <- read.csv('data/summer-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(summer_plants_c), colnames(summer_zeros))
-summer_zeros <- summer_zeros %>%
-  filter(year %in% summer_plants_c$year) %>%
-  select(-rmcols)
-summer_zeros <- 0*(summer_zeros)
-
-summer_plants_c <- cbind(summer_plants_c, summer_zeros)
 
 summer_plants_c_wis <- vegan::wisconsin(summer_plants_c[,2:ncol(summer_plants_c)])
 
@@ -123,18 +146,6 @@ summer_vals <- cbind(summer_plants_c$year, summer_pcoa$points[,1:3])
 winter_plants_c <- read.csv('data/winter-control-plants-adjusted.csv',
                           stringsAsFactors = F)
 
-
-winter_zeros <- read.csv('data/winter-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(winter_plants_c), colnames(winter_zeros))
-winter_zeros <- winter_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_zeros <- 0*(winter_zeros)
-
-winter_plants_c <- cbind(winter_plants_c, winter_zeros)
-
 winter_plants_c_wis <- vegan::wisconsin(winter_plants_c[,2:ncol(winter_plants_c)])
 
 
@@ -168,7 +179,7 @@ text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
 ```
 
 
-There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 39% of variation, going to go for 3. 
+There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 35% of variation, going to go for 3. 
 
 
 ```{r save winter axes, echo = F}
@@ -189,13 +200,19 @@ winter_vals <- cbind(winter_plants_c$year, winter_pcoa$points[,1:3])
 
 
 
-## RDA
+* Saved the first three axes for both PCoAs.
+* Use these six axes, and year, as predictor values for RDA.
 
-Redundancy analysis, using combined winter and summer axes and year to predict the rodent community.
+
+## Partial RDA
+
+Partial redundancy analysis, using combined winter and summer axes, conditioned on year, to predict the rodent community.
  
 Restricted to years with both a winter & summer census (n = 27).
 
-``` {r RDA, echo = T}
+Used rodent data, summarized yearly, transformed via Hellinger transformation.
+
+``` {r partial RDA, echo = T}
 
 rodents <- read.csv('data/rodents-adjusted.csv', 
                     stringsAsFactors = F)
@@ -212,8 +229,55 @@ pred_vals <- inner_join(winter_axes, summer_axes, by = 'year')
 rodents <- filter(rodents, year %in% pred_vals$year) %>%
   select(-year)
 
+pred_vals_noy <- select(pred_vals, -year)
+pred_vals_y <- select(pred_vals, year)
+
 rodents_hel <- decostand(rodents, 'hellinger')
 
+rodents_prda <- rda(rodents_hel ~ . + Condition(pred_vals_y$year), pred_vals_noy)
+
+R2 <- RsquareAdj(rodents_prda)$r.squared
+R2adj <- RsquareAdj(rodents_prda)$adj.r.squared
+
+R2
+R2adj
+
+
+anova(rodents_prda, step = 1000)
+anova(rodents_prda, by = "axis", step = 1000)
+
+
+```
+
+Find the most parsimonious model...
+
+```{r reduce vars part, echo = T}
+
+set.seed(11)
+step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_prda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
+
+# Most parsimonious is Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 
+
+rod_prda_pars <- rda(rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + Condition(pred_vals_y$year), pred_vals_noy)
+
+pR2p <- RsquareAdj(rod_prda_pars)$r.squared
+pR2adjp <- RsquareAdj(rod_prda_pars)$adj.r.squared
+
+pR2p
+pR2adjp
+
+
+anova(rod_prda_pars, step = 1000)
+anova(rod_prda_pars, by = "axis", step = 1000)
+
+
+```
+
+
+## Regular RDA
+
+```{r regular rda, echo = T}
 rodents_rda <- rda(rodents_hel ~ ., pred_vals)
 
 R2 <- RsquareAdj(rodents_rda)$r.squared
@@ -225,19 +289,16 @@ R2adj
 
 anova(rodents_rda, step = 1000)
 anova(rodents_rda, by = "axis", step = 1000)
-
-
 ```
-
 Find the most parsimonious model...
 
-```{r reduce vars, echo = T}
+```{r reduce vars regular, echo = T}
 
 set.seed(11)
 step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_rda), 
                            R2scope = F, direction = "forward", pstep = 1000)
 
-# Most parsimonious is Call: rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + SummerPCoAxis_2
+# Most parsimonious is rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 +  SummerPCoAxis_2 
 
 rod_rda_pars <- rda(rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_3 + WinterPCoAxis_2 + SummerPCoAxis_2, pred_vals)
 
@@ -253,13 +314,19 @@ anova(rod_rda_pars, by = "axis", step = 1000)
 
 
 ```
-# wisconsin trans on plant community data
-# look @ contributions to plant community axes
-# look @ exclosures winter axes: krat effects
-
 ## Variance partitioning
 
-```{r  partial, echo = T}
+```{r  partial variance partitioning, echo = T}
+
+rod_ppart <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ pred_vals_y$year, data = pred_vals_noy)
+rod_ppart
+
+plot(rod_ppart, digits = 2)
+```
+
+WinterPCoAxis_1 combined with year has the largest chunk (.34); on its own, WinterPCoAxis_1 explains an additional .1
+
+```{r  regular variance partitioning, echo = T}
 
 rod_part <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ SummerPCoAxis_2, data = pred_vals)
 rod_part
@@ -267,7 +334,11 @@ rod_part
 plot(rod_part, digits = 2)
 ```
 
-WinterPCoAxis_1 has the largest chunk (.4)
+How strongly is summer axis 2 related to year?
+
+```{r plot summer pcoa2 v year}
+plot(pred_vals$year, pred_vals$SummerPCoAxis_2)
+```
 
 ### Years - rodents comparison
 

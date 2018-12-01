@@ -180,11 +180,16 @@ colnames(rodents)
 
 rodents_props <- rodents/rowSums(rodents)
 
+rodents_props_no0 <- rodents_props
+for(i in 2:ncol(rodents_props_no0)) {
+  rodents_props_no0[,i][which(rodents_props_no0[,i] == 0)] <- NA
+}
 
-plot(pred_vals$year, rodents_props$DS, col = 'blue', ylim = c(0, 1.1))
-points(pred_vals$year, rodents_props$PE, col = 'green')
-points(pred_vals$year, rodents_props$RM, col = 'purple')
-points(pred_vals$year, rodents_props$DM, col = 'pink')
+
+plot(pred_vals$year, rodents_props_no0$DS, col = 'blue', ylim = c(0, 1.1))
+points(pred_vals$year, rodents_props_no0$PE, col = 'green')
+points(pred_vals$year, rodents_props_no0$RM, col = 'purple')
+points(pred_vals$year, rodents_props_no0$DM, col = 'pink')
 abline(v = 1990, col = 'red')
 
 
@@ -194,7 +199,7 @@ winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
                           stringsAsFactors = F)
 
 
-winter_plants_e_wis <- vegan::wisconsin(winter_plants_e[,2:ncol(winter_plants_e)])
+# winter_plants_e_wis <- vegan::wisconsin(winter_plants_e[,2:ncol(winter_plants_e)])
 
 # which plants dominate winter axis 1?
 
@@ -206,34 +211,50 @@ impt_species <- as.data.frame(species_pc) %>%
 valyears_c <- which(winter_plants_c$year %in% pred_vals$year)
 valyears_e <- which(winter_plants_e$year %in% pred_vals$year)
 
-winter_plants_c_plot <- winter_plants_c_wis[valyears_c, ]
-winter_plants_e_plot <- winter_plants_e_wis[valyears_e, ]
+winter_plants_c_plot <- winter_plants_c[valyears_c, ]
+winter_plants_e_plot <- winter_plants_e[valyears_e, ]
 
-par(mfrow=c(3,1))
+winter_plants_c_p_plot <- winter_plants_c_plot
+winter_plants_e_p_plot <- winter_plants_e_plot
+
+for (i in 1:nrow(winter_plants_c_p_plot)) {
+  winter_plants_c_p_plot[i, 2:ncol(winter_plants_c_p_plot)] <-
+    winter_plants_c_plot[i, 2:ncol(winter_plants_c_plot)] /
+    sum(winter_plants_c_plot[i, 2:ncol(winter_plants_c_plot)])
+  
+  winter_plants_e_p_plot[i, 2:ncol(winter_plants_e_p_plot)] <-
+    winter_plants_e_plot[i, 2:ncol(winter_plants_e_plot)] /
+    sum(winter_plants_e_plot[i, 2:ncol(winter_plants_e_plot)])
+  
+}
+
+
+
+# par(mfrow=c(3,1))
 plot(pred_vals$year, pred_vals$WinterPCoAxis_1)
-plot(pred_vals$year, winter_plants_c_plot$eria.diff, col = 'red', ylim = c(0, .5))
-points(pred_vals$year, winter_plants_c_plot$hapl.grac, col = 'red')
-points(pred_vals$year, winter_plants_c_plot$esch.mexi, col = 'red')
-points(pred_vals$year, winter_plants_c_plot$erig.drive, col = 'red')
-points(pred_vals$year, winter_plants_c_plot$step.exig, col = 'red')
-points(pred_vals$year, winter_plants_c_plot$pect.recu, col = 'blue')
-points(pred_vals$year, winter_plants_c_plot$amsi.tess, col = 'blue')
-points(pred_vals$year, winter_plants_c_plot$ambr.arte, col = 'blue')
-points(pred_vals$year, winter_plants_c_plot$desc.obtu, col = 'blue')
-points(pred_vals$year, winter_plants_c_plot$sisy.irio, col = 'blue')
-points(pred_vals$year, winter_plants_c_plot$laen.coul, col = 'blue')
+plot(pred_vals$year, winter_plants_c_p_plot$eria.diff, col = 'red', ylim = c(0, .5))
+points(pred_vals$year, winter_plants_c_p_plot$hapl.grac, col = 'red')
+points(pred_vals$year, winter_plants_c_p_plot$esch.mexi, col = 'red')
+points(pred_vals$year, winter_plants_c_p_plot$erig.drive, col = 'red')
+points(pred_vals$year, winter_plants_c_p_plot$step.exig, col = 'red')
+points(pred_vals$year, winter_plants_c_p_plot$pect.recu, col = 'blue')
+points(pred_vals$year, winter_plants_c_p_plot$amsi.tess, col = 'blue')
+points(pred_vals$year, winter_plants_c_p_plot$ambr.arte, col = 'blue')
+points(pred_vals$year, winter_plants_c_p_plot$desc.obtu, col = 'blue')
+points(pred_vals$year, winter_plants_c_p_plot$sisy.irio, col = 'blue')
+points(pred_vals$year, winter_plants_c_p_plot$laen.coul, col = 'blue')
 abline(v = 1990, col = 'red')
-plot(pred_vals$year, winter_plants_e_plot$eria.diff, col = 'red', ylim = c(0, .5))
-points(pred_vals$year, winter_plants_e_plot$hapl.grac, col = 'red')
-points(pred_vals$year, winter_plants_e_plot$esch.mexi, col = 'red')
-points(pred_vals$year, winter_plants_e_plot$erig.drive, col = 'red')
-points(pred_vals$year, winter_plants_e_plot$step.exig, col = 'red')
-points(pred_vals$year, winter_plants_e_plot$pect.recu, col = 'blue')
-points(pred_vals$year, winter_plants_e_plot$amsi.tess, col = 'blue')
-points(pred_vals$year, winter_plants_e_plot$ambr.arte, col = 'blue')
-points(pred_vals$year, winter_plants_e_plot$desc.obtu, col = 'blue')
-points(pred_vals$year, winter_plants_e_plot$sisy.irio, col = 'blue')
-points(pred_vals$year, winter_plants_e_plot$laen.coul, col = 'blue')
+plot(pred_vals$year, winter_plants_e_p_plot$eria.diff, col = 'red', ylim = c(0, .5))
+points(pred_vals$year, winter_plants_e_p_plot$hapl.grac, col = 'red')
+points(pred_vals$year, winter_plants_e_p_plot$esch.mexi, col = 'red')
+points(pred_vals$year, winter_plants_e_p_plot$erig.drive, col = 'red')
+points(pred_vals$year, winter_plants_e_p_plot$step.exig, col = 'red')
+points(pred_vals$year, winter_plants_e_p_plot$pect.recu, col = 'blue')
+points(pred_vals$year, winter_plants_e_p_plot$amsi.tess, col = 'blue')
+points(pred_vals$year, winter_plants_e_p_plot$ambr.arte, col = 'blue')
+points(pred_vals$year, winter_plants_e_p_plot$desc.obtu, col = 'blue')
+points(pred_vals$year, winter_plants_e_p_plot$sisy.irio, col = 'blue')
+points(pred_vals$year, winter_plants_e_p_plot$laen.coul, col = 'blue')
 abline(v = 1990, col = 'red')
 
 # it's not exactly a slam dunk
