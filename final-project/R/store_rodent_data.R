@@ -6,7 +6,7 @@
 #' @export
 
 library(dplyr)
-store_rodent_data <- function(){
+store_rodent_data <- function(treatment = 'control'){
   primary_tables <- portalr::load_data(path = 'repo')
   
   rodents <- primary_tables[[1]]
@@ -24,15 +24,16 @@ store_rodent_data <- function(){
     filter(granivore == 1, unidentified == 0) %>%
     select(species)
   
-  rodents_control <- rodents %>%
+  these_rodents <- rodents %>%
     filter(species %in% focal_spp$species) %>%
     select(month, year, period, plot, species) %>%
     group_by(month, year, period, plot, species) %>%
     summarize(n = n()) %>%
     ungroup() %>%
     left_join(plots_history, by = c('year', 'month', 'period', 'plot')) %>%
-    filter(treatment == 'control')
+    filter(treatment == treatment)
   
-  write.csv(rodents_control, 'final-project/data/rodents-raw.csv', row.names = F)
+  
+  write.csv(these_rodents, paste0('final-project/data/', treatment, '-rodents-raw.csv'), row.names = F)
 
 }

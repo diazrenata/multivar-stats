@@ -6,22 +6,47 @@ source('final-project/R/store_adjusted_data.R')
 library(dplyr)
 
 store_plant_data()
-store_rodent_data()
 
-rodents <- read.csv('final-project/data/summer-rodents-raw.csv', 
+
+store_rodent_data(treatment = 'control')
+store_rodent_data(treatment = 'exclosure')
+
+control_rodents <- read.csv('final-project/data/control-rodents-raw.csv', 
                     stringsAsFactors = F)
-summer_plants <- read.csv('final-project/data/summer-plants-raw.csv', 
-                          stringsAsFactors = F)
-winter_plants <- read.csv('final-project/data/winter-plants-raw.csv', 
-                          stringsAsFactors = F)
-all_plants <- rbind(summer_plants, winter_plants)
+# exclosure_rodents <- read.csv('final-project/data/exclosure-rodents-raw.csv', 
+#                             stringsAsFactors = F)
 
-store_adjusted_data(plant_data = all_plants, rodent_data = rodents,
-                    focal_type = 'rodent')
-store_adjusted_data(plant_data = summer_plants, focal_type = 'plant',
-                    season = 'summer')
-store_adjusted_data(plant_data = winter_plants, focal_type = 'plant',
-                    season = 'winter')
+summer_plants_c <- read.csv('final-project/data/summer-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+winter_plants_c <- read.csv('final-project/data/winter-plants-raw-c.csv', 
+                          stringsAsFactors = F)
+all_plants_c <- rbind(summer_plants_c, winter_plants_c)
+
+store_adjusted_data(plant_data = all_plants_c, rodent_data = control_rodents,
+                    focal_type = 'rodent', treatment = 'control')
+# 
+# store_adjusted_data(plant_data = all_plants_c, rodent_data = exclosure_rodents,
+#                     focal_type = 'rodent', treatment = 'exclosure')
+
+store_adjusted_data(plant_data = summer_plants_c, focal_type = 'plant',
+                    season = 'summer', treatment = 'control')
+store_adjusted_data(plant_data = winter_plants_c, focal_type = 'plant',
+                    season = 'winter', treatment = 'control')
+
+
+summer_plants_e <- read.csv('final-project/data/summer-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+winter_plants_e <- read.csv('final-project/data/winter-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+all_plants_e <- rbind(summer_plants_e, winter_plants_e)
+
+
+
+store_adjusted_data(plant_data = summer_plants_e, focal_type = 'plant',
+                    season = 'summer', treatment = 'exclosure')
+store_adjusted_data(plant_data = winter_plants_e, focal_type = 'plant',
+                    season = 'winter', treatment = 'exclosure')
+
 
 rm(list=ls())
 

@@ -1,66 +1,14 @@
----
-title: "Multivar stats final project"
-author: "Renata Diaz"
-date: "11/23/2018"
-output: github_document
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(vegan)
 library(ca)
-  
-```
 
-## Project plan
+setwd('final-project')
 
-1. Get data
-    a. load Portal rodent and plant data
-    b. summarize by year
-    c. standardize according to trapping/survey effort
-2. Reduce dimensionality of plant data
-    a. try LDA
-        1. If base LDA doesn't work, try removing 5% most/least common species
-    b. pcoa
-    c. separate winter/summer censuses a priori?
-3. Distance based redundancy analysis
-    a. try to use plant summary axes to predict rodent community
-    b. (?) Use LDA rodent topics as ind variable?
-4. Variance partitioning to isolate effects of year, plants on rodents
-
-## Get data
-
-### Plant data
-* Extracted summer & winter plant censuses for all years 
-* Standardized plant abundances according to sampling effort
-* Kept seasons separate
-
-### Rodent data
-* Rodent censuses on control plots for all years, restricted to granivores
-* Standardized according to sampling effort (per census period)
-* Summed across all months in each calendar year
-
-## PCoA
-
-* Ran separate principle coordinates analyses on winter and summer datasets.
-
-### Summer PCoA
-
-```{r summer pcoa, echo = T} 
+## ----summer pcoa, echo = T-----------------------------------------------
 summer_plants_c <- read.csv('data/summer-control-plants-adjusted.csv',
                           stringsAsFactors = F)
-
-summer_zeros <- read.csv('data/summer-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(summer_plants_c), colnames(summer_zeros))
-summer_zeros <- summer_zeros %>%
-  filter(year %in% summer_plants_c$year) %>%
-  select(-rmcols)
-summer_zeros <- 0*(summer_zeros)
-
-summer_plants_c <- cbind(summer_plants_c, summer_zeros)
 
 summer_plants_c_wis <- vegan::wisconsin(summer_plants_c[,2:ncol(summer_plants_c)])
 
@@ -95,14 +43,8 @@ abline(v = 0, lty = 3)
 species_pc <- wascores(summer_pcoa$points[, 1:2], summer_plants_c_wis)
 text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
   
-```
 
-
-There seems to be an inflection point in the scree plot around axis 3. 
-
-Moving forward, keeping the first 3 axes as predictor variables for the rodent community. 
-
-```{r save summer axes, echo = F}
+## ----save summer axes, echo = F------------------------------------------
 summer_vals <- cbind(summer_plants_c$year, summer_pcoa$points[,1:3])
   
   season_names <- rep("SummerPCoAxis_", 3) %>%
@@ -113,27 +55,10 @@ summer_vals <- cbind(summer_plants_c$year, summer_pcoa$points[,1:3])
   
   write.csv(summer_vals, 'models/summer_pcoa_vals_3.csv', row.names = F)
  
-```
 
-
-
-### Winter PCoA
-
-```{r winter pcoa, echo = T} 
+## ----winter pcoa, echo = T-----------------------------------------------
 winter_plants_c <- read.csv('data/winter-control-plants-adjusted.csv',
                           stringsAsFactors = F)
-
-
-winter_zeros <- read.csv('data/winter-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-
-rmcols <- intersect(colnames(winter_plants_c), colnames(winter_zeros))
-winter_zeros <- winter_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_zeros <- 0*(winter_zeros)
-
-winter_plants_c <- cbind(winter_plants_c, winter_zeros)
 
 winter_plants_c_wis <- vegan::wisconsin(winter_plants_c[,2:ncol(winter_plants_c)])
 
@@ -165,13 +90,8 @@ abline(v = 0, lty = 3)
 
 species_pc <- wascores(winter_pcoa$points[, 1:2], winter_plants_c_wis)
 text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
-```
 
-
-There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 39% of variation, going to go for 3. 
-
-
-```{r save winter axes, echo = F}
+## ----save winter axes, echo = F------------------------------------------
 winter_vals <- cbind(winter_plants_c$year, winter_pcoa$points[,1:3])
   
   season_names <- rep("WinterPCoAxis_", 3) %>%
@@ -185,17 +105,8 @@ winter_vals <- cbind(winter_plants_c$year, winter_pcoa$points[,1:3])
 
 #rm(list=ls())
 
-```
 
-
-
-## RDA
-
-Redundancy analysis, using combined winter and summer axes and year to predict the rodent community.
- 
-Restricted to years with both a winter & summer census (n = 27).
-
-``` {r RDA, echo = T}
+## ----RDA, echo = T-------------------------------------------------------
 
 rodents <- read.csv('data/rodents-adjusted.csv', 
                     stringsAsFactors = F)
@@ -227,11 +138,8 @@ anova(rodents_rda, step = 1000)
 anova(rodents_rda, by = "axis", step = 1000)
 
 
-```
 
-Find the most parsimonious model...
-
-```{r reduce vars, echo = T}
+## ----reduce vars, echo = T-----------------------------------------------
 
 set.seed(11)
 step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_rda), 
@@ -252,37 +160,28 @@ anova(rod_rda_pars, step = 1000)
 anova(rod_rda_pars, by = "axis", step = 1000)
 
 
-```
-# wisconsin trans on plant community data
-# look @ contributions to plant community axes
-# look @ exclosures winter axes: krat effects
 
-## Variance partitioning
-
-```{r  partial, echo = T}
+## ----partial, echo = T---------------------------------------------------
 
 rod_part <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ SummerPCoAxis_2, data = pred_vals)
 rod_part
 
 plot(rod_part, digits = 2)
-```
 
-WinterPCoAxis_1 has the largest chunk (.4)
-
-### Years - rodents comparison
-
-```{r plot winter pcoa1 v year}
+## ----plot winter pcoa1 v year--------------------------------------------
  
 
 plot(pred_vals$year, pred_vals$WinterPCoAxis_1)
 abline(v = 1990, col = 'red')
+
+
 
 colnames(rodents)
 
 rodents_props <- rodents/rowSums(rodents)
 
 
-plot(pred_vals$year, rodents_props$DS, col = 'blue')
+plot(pred_vals$year, rodents_props$DS, col = 'blue', ylim = c(0, 1.1))
 points(pred_vals$year, rodents_props$PE, col = 'green')
 points(pred_vals$year, rodents_props$RM, col = 'purple')
 points(pred_vals$year, rodents_props$DM, col = 'pink')
@@ -290,48 +189,51 @@ abline(v = 1990, col = 'red')
 
 
 
-
-```
-
-
-I might be totally misinterpreting this, but I'm feeling like this indicates that the 1990 change point (which, if you look at the LDA results, is driven by a decline in RM & PE relative to DM) is a *delayed effect* of DS decline *moderated by winter plant community*???
-
-
-Why I think this:
-* DS changepoint is the mid 80s but DS continue to decline
-* Correlated winter plants don't take off until the 90s
-* PE/RM too rare to be driving the end of that change
-* PE/RM seem to follow the DS into decline
-* So if the plant change occurs after the DS change, and PM/RE are tracking the *plants*, the timing seems to make sense. 
-
-Let's look at that same PCOA axis in the *exclosures*...
-
-```{r winter plants exclosures, echo = T}
+## ----winter plants exclosures, echo = T----------------------------------
 winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
                           stringsAsFactors = F)
-winter_plants_e <- winter_plants_e %>%
-  filter(year %in% winter_plants_c$year)
-
-winter_e_zeros <- winter_plants_c
-
-rmcols <- intersect(colnames(winter_plants_e), colnames(winter_e_zeros))
-winter_e_zeros <- winter_e_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_e_zeros <- 0*(winter_e_zeros)
-
-winter_plants_e <- cbind(winter_plants_e, winter_e_zeros)
-
-winter_plants_e_reordered <- winter_plants_e %>%
-  select(colnames(winter_plants_c))
-
-winter_plants_e_wis <- vegan::wisconsin(winter_plants_e_reordered[,2:ncol(winter_plants_e_reordered)])
 
 
+winter_plants_e_wis <- vegan::wisconsin(winter_plants_e[,2:ncol(winter_plants_e)])
 
-# winter_plants_e_wis <- winter_plants_e_wis %>%
-#   select(colnames(winter_plants_c_wis))
-# 
-# (colnames(winter_plants_e_wis) == colnames(winter_plants_c_wis))
+# which plants dominate winter axis 1?
 
-```
+impt_species <- as.data.frame(species_pc) %>%
+  select(V1) %>%
+  mutate(abs_score = abs(V1), species = row.names(species_pc)) %>%
+  arrange(desc(abs_score))
+
+valyears_c <- which(winter_plants_c$year %in% pred_vals$year)
+valyears_e <- which(winter_plants_e$year %in% pred_vals$year)
+
+winter_plants_c_plot <- winter_plants_c_wis[valyears_c, ]
+winter_plants_e_plot <- winter_plants_e_wis[valyears_e, ]
+
+par(mfrow=c(3,1))
+plot(pred_vals$year, pred_vals$WinterPCoAxis_1)
+plot(pred_vals$year, winter_plants_c_plot$eria.diff, col = 'red', ylim = c(0, .5))
+points(pred_vals$year, winter_plants_c_plot$hapl.grac, col = 'red')
+points(pred_vals$year, winter_plants_c_plot$esch.mexi, col = 'red')
+points(pred_vals$year, winter_plants_c_plot$erig.drive, col = 'red')
+points(pred_vals$year, winter_plants_c_plot$step.exig, col = 'red')
+points(pred_vals$year, winter_plants_c_plot$pect.recu, col = 'blue')
+points(pred_vals$year, winter_plants_c_plot$amsi.tess, col = 'blue')
+points(pred_vals$year, winter_plants_c_plot$ambr.arte, col = 'blue')
+points(pred_vals$year, winter_plants_c_plot$desc.obtu, col = 'blue')
+points(pred_vals$year, winter_plants_c_plot$sisy.irio, col = 'blue')
+points(pred_vals$year, winter_plants_c_plot$laen.coul, col = 'blue')
+abline(v = 1990, col = 'red')
+plot(pred_vals$year, winter_plants_e_plot$eria.diff, col = 'red', ylim = c(0, .5))
+points(pred_vals$year, winter_plants_e_plot$hapl.grac, col = 'red')
+points(pred_vals$year, winter_plants_e_plot$esch.mexi, col = 'red')
+points(pred_vals$year, winter_plants_e_plot$erig.drive, col = 'red')
+points(pred_vals$year, winter_plants_e_plot$step.exig, col = 'red')
+points(pred_vals$year, winter_plants_e_plot$pect.recu, col = 'blue')
+points(pred_vals$year, winter_plants_e_plot$amsi.tess, col = 'blue')
+points(pred_vals$year, winter_plants_e_plot$ambr.arte, col = 'blue')
+points(pred_vals$year, winter_plants_e_plot$desc.obtu, col = 'blue')
+points(pred_vals$year, winter_plants_e_plot$sisy.irio, col = 'blue')
+points(pred_vals$year, winter_plants_e_plot$laen.coul, col = 'blue')
+abline(v = 1990, col = 'red')
+
+# it's not exactly a slam dunk

@@ -33,13 +33,24 @@ winter <- winter %>%
   dplyr::filter(season == 'winter') %>%
   dplyr::left_join(plot_treatments_winter, by = c('year', 'plot'))
 
-summer <- summer %>%
+summer_c <- summer %>%
   dplyr::filter(treatment == 'control')
 
-winter <- winter %>%
+winter_c <- winter %>%
   dplyr::filter(treatment == 'control')
 
-write.csv(summer, 'final-project/data/summer-plants-raw.csv', row.names = F)
-write.csv(winter, 'final-project/data/winter-plants-raw.csv', row.names = F)
+summer_e <- summer %>%
+  dplyr::filter(treatment == 'exclosure')
+
+winter_e <- winter %>%
+  dplyr::filter(treatment == 'exclosure')
+
+write.csv(summer_c, 'final-project/data/summer-plants-raw-c.csv', row.names = F)
+write.csv(winter_c, 'final-project/data/winter-plants-raw-c.csv', row.names = F)
+
+
+write.csv(summer_e, 'final-project/data/summer-plants-raw-e.csv', row.names = F)
+write.csv(winter_e, 'final-project/data/winter-plants-raw-e.csv', row.names = F)
+
 
 }
