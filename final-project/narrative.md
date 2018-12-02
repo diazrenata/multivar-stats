@@ -293,10 +293,10 @@ anova(rodents_prda, by = "axis", step = 1000)
     ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
     ##          Df Variance       F Pr(>F)    
     ## RDA1      1 0.038889 16.6367  0.001 ***
-    ## RDA2      1 0.013465  5.7604  0.002 ** 
-    ## RDA3      1 0.004915  2.1027  0.473    
-    ## RDA4      1 0.001929  0.8253  0.965    
-    ## RDA5      1 0.000995  0.4256  0.997    
+    ## RDA2      1 0.013465  5.7604  0.001 ***
+    ## RDA3      1 0.004915  2.1027  0.463    
+    ## RDA4      1 0.001929  0.8253  0.957    
+    ## RDA5      1 0.000995  0.4256  0.995    
     ## RDA6      1 0.000630  0.2696  0.976    
     ## Residual 19 0.044414                   
     ## ---
@@ -738,7 +738,7 @@ plot(rod_ppart, digits = 2)
 
 ![](narrative_files/figure-markdown_github/partial%20variance%20partitioning-1.png)
 
-WinterPCoAxis\_1 combined with year has the largest chunk (.3); on its own, WinterPCoAxis\_1 explains an additional .1
+WinterPCoAxis\_1 combined with year has the largest chunk (.34); on its own, WinterPCoAxis\_1 explains an additional .1
 
 ``` r
 rod_part <- varpart(rodents_hel, ~ WinterPCoAxis_1, ~ WinterPCoAxis_3, ~  WinterPCoAxis_2, ~ SummerPCoAxis_2, data = pred_vals)
@@ -869,37 +869,186 @@ abline(v = 1990, col = 'red')
 
 ![](narrative_files/figure-markdown_github/plot%20winter%20pcoa1%20v%20year-2.png)
 
-I might be totally misinterpreting this, but I'm feeling like this indicates that the 1990 change point (which, if you look at the LDA results, is driven by a decline in RM & PE relative to DM) is a *delayed effect* of DS decline *moderated by winter plant community*???
+### Partial RDA on just species of interest
 
-Why I think this: \* DS changepoint is the mid 80s but DS continue to decline \* Correlated winter plants don't take off until the 90s \* PE/RM too rare to be driving the end of that change \* PE/RM seem to follow the DS into decline \* So if the plant change occurs after the DS change, and PM/RE are tracking the *plants*, the timing seems to make sense.
-
-Let's look at that same PCOA axis in the *exclosures*...
+Since the first round of RDA seems to be very much about DS, can I just look at the species whose dynamics in the 1990s are of interest? RM, PE, and DM?
 
 ``` r
-winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-winter_plants_e <- winter_plants_e %>%
-  filter(year %in% winter_plants_c$year)
+focal_species <- rodents_hel %>%
+  select(RM, PE, DM)
 
-winter_e_zeros <- winter_plants_c
+frodents_prda <- rda(focal_species ~ . + Condition(pred_vals_y$year), pred_vals_noy)
 
-rmcols <- intersect(colnames(winter_plants_e), colnames(winter_e_zeros))
-winter_e_zeros <- winter_e_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_e_zeros <- 0*(winter_e_zeros)
+R2 <- RsquareAdj(frodents_prda)$r.squared
+R2adj <- RsquareAdj(frodents_prda)$adj.r.squared
 
-winter_plants_e <- cbind(winter_plants_e, winter_e_zeros)
-
-winter_plants_e_reordered <- winter_plants_e %>%
-  select(colnames(winter_plants_c))
-
-winter_plants_e_wis <- vegan::wisconsin(winter_plants_e_reordered[,2:ncol(winter_plants_e_reordered)])
-
-
-
-# winter_plants_e_wis <- winter_plants_e_wis %>%
-#   select(colnames(winter_plants_c_wis))
-# 
-# (colnames(winter_plants_e_wis) == colnames(winter_plants_c_wis))
+R2
 ```
+
+    ## [1] 0.4070495
+
+``` r
+R2adj
+```
+
+    ## [1] NA
+
+``` r
+anova(rodents_prda, step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance      F Pr(>F)    
+    ## Model     6 0.060824 4.3367  0.001 ***
+    ## Residual 19 0.044414                  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+anova(rodents_prda, by = "axis", step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Forward tests for axes
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance       F Pr(>F)    
+    ## RDA1      1 0.038889 16.6367  0.001 ***
+    ## RDA2      1 0.013465  5.7604  0.005 ** 
+    ## RDA3      1 0.004915  2.1027  0.441    
+    ## RDA4      1 0.001929  0.8253  0.963    
+    ## RDA5      1 0.000995  0.4256  0.996    
+    ## RDA6      1 0.000630  0.2696  0.983    
+    ## Residual 19 0.044414                   
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+set.seed(11)
+step.forward <- ordiR2step(rda(focal_species ~ 1, data = pred_vals), scope = formula(frodents_prda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
+```
+
+    ## Step: R2.adj= 0 
+    ## Call: focal_species ~ 1 
+    ##  
+    ##                   R2.adjusted
+    ## + WinterPCoAxis_1  0.38302654
+    ## + SummerPCoAxis_1  0.21338774
+    ## + WinterPCoAxis_3  0.05403253
+    ## + SummerPCoAxis_2  0.04348558
+    ## + SummerPCoAxis_3  0.02200663
+    ## <none>             0.00000000
+    ## + WinterPCoAxis_2 -0.03470025
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + WinterPCoAxis_1  1 -101.64 17.141  0.002 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.3830265 
+    ## Call: focal_species ~ WinterPCoAxis_1 
+    ##  
+    ##                   R2.adjusted
+    ## + SummerPCoAxis_2   0.4767887
+    ## + WinterPCoAxis_3   0.4207732
+    ## + SummerPCoAxis_3   0.3886382
+    ## <none>              0.3830265
+    ## + SummerPCoAxis_1   0.3806447
+    ## + WinterPCoAxis_2   0.3737958
+    ## 
+    ##                   Df     AIC      F Pr(>F)   
+    ## + SummerPCoAxis_2  1 -105.19 5.4801   0.01 **
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.4767887 
+    ## Call: focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 
+    ##  
+    ##                   R2.adjusted
+    ## + WinterPCoAxis_3   0.5266977
+    ## + SummerPCoAxis_3   0.4846371
+    ## <none>              0.4767887
+    ## + SummerPCoAxis_1   0.4670650
+    ## + WinterPCoAxis_2   0.4602034
+    ## 
+    ##                   Df     AIC      F Pr(>F)  
+    ## + WinterPCoAxis_3  1 -107.05 3.5308  0.046 *
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Step: R2.adj= 0.5266977 
+    ## Call: focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 + WinterPCoAxis_3 
+    ##  
+    ##                   R2.adjusted
+    ## + SummerPCoAxis_3   0.5371309
+    ## <none>              0.5266977
+    ## + SummerPCoAxis_1   0.5193380
+    ## + WinterPCoAxis_2   0.5139478
+    ## 
+    ##                   Df     AIC      F Pr(>F)
+    ## + SummerPCoAxis_3  1 -106.85 1.5184   0.22
+
+``` r
+# ## Call: focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 
+
+frod_prda_pars <- rda(focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 + Condition(pred_vals_y$year), pred_vals_noy)
+
+fpR2p <- RsquareAdj(frod_prda_pars)$r.squared
+fpR2adjp <- RsquareAdj(frod_prda_pars)$adj.r.squared
+
+fpR2p
+```
+
+    ## [1] 0.3071116
+
+``` r
+fpR2adjp
+```
+
+    ## [1] NA
+
+``` r
+anova(frod_prda_pars, step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df Variance      F Pr(>F)    
+    ## Model     2 0.010745 7.8429  0.001 ***
+    ## Residual 23 0.015755                  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+anova(frod_prda_pars, by = "axis", step = 1000)
+```
+
+    ## Permutation test for rda under reduced model
+    ## Forward tests for axes
+    ## Permutation: free
+    ## Number of permutations: 999
+    ## 
+    ## Model: rda(formula = focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 + Condition(pred_vals_y$year), data = pred_vals_noy)
+    ##          Df  Variance       F Pr(>F)   
+    ## RDA1      1 0.0078386 11.4432  0.002 **
+    ## RDA2      1 0.0029062  4.2426  0.021 * 
+    ## Residual 23 0.0157551                  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+frod_part <- varpart(focal_species, ~ WinterPCoAxis_1,  ~ SummerPCoAxis_2, ~year, data = pred_vals)
+plot(frod_part, digits = 2)
+```
+
+![](narrative_files/figure-markdown_github/prda%20focal%20spp-1.png)

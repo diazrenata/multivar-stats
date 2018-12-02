@@ -365,44 +365,49 @@ abline(v = 1990, col = 'red')
 ```
 
 
-I might be totally misinterpreting this, but I'm feeling like this indicates that the 1990 change point (which, if you look at the LDA results, is driven by a decline in RM & PE relative to DM) is a *delayed effect* of DS decline *moderated by winter plant community*???
+### Partial RDA on just species of interest
+
+Since the first round of RDA seems to be very much about DS, can I just look at the species whose dynamics in the 1990s are of interest? RM, PE, and DM?
+
+``` {r prda focal spp}
+
+focal_species <- rodents_hel %>%
+  select(RM, PE, DM)
+
+frodents_prda <- rda(focal_species ~ . + Condition(pred_vals_y$year), pred_vals_noy)
+
+R2 <- RsquareAdj(frodents_prda)$r.squared
+R2adj <- RsquareAdj(frodents_prda)$adj.r.squared
+
+R2
+R2adj
 
 
-Why I think this:
-* DS changepoint is the mid 80s but DS continue to decline
-* Correlated winter plants don't take off until the 90s
-* PE/RM too rare to be driving the end of that change
-* PE/RM seem to follow the DS into decline
-* So if the plant change occurs after the DS change, and PM/RE are tracking the *plants*, the timing seems to make sense. 
+anova(rodents_prda, step = 1000)
+anova(rodents_prda, by = "axis", step = 1000)
+set.seed(11)
+step.forward <- ordiR2step(rda(focal_species ~ 1, data = pred_vals), scope = formula(frodents_prda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
 
-Let's look at that same PCOA axis in the *exclosures*...
+# ## Call: focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 
 
-```{r winter plants exclosures, echo = T}
-winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
-                          stringsAsFactors = F)
-winter_plants_e <- winter_plants_e %>%
-  filter(year %in% winter_plants_c$year)
+frod_prda_pars <- rda(focal_species ~ WinterPCoAxis_1 + SummerPCoAxis_2 + Condition(pred_vals_y$year), pred_vals_noy)
 
-winter_e_zeros <- winter_plants_c
+fpR2p <- RsquareAdj(frod_prda_pars)$r.squared
+fpR2adjp <- RsquareAdj(frod_prda_pars)$adj.r.squared
 
-rmcols <- intersect(colnames(winter_plants_e), colnames(winter_e_zeros))
-winter_e_zeros <- winter_e_zeros %>%
-  filter(year %in% winter_plants_c$year) %>%
-  select(-rmcols)
-winter_e_zeros <- 0*(winter_e_zeros)
-
-winter_plants_e <- cbind(winter_plants_e, winter_e_zeros)
-
-winter_plants_e_reordered <- winter_plants_e %>%
-  select(colnames(winter_plants_c))
-
-winter_plants_e_wis <- vegan::wisconsin(winter_plants_e_reordered[,2:ncol(winter_plants_e_reordered)])
+fpR2p
+fpR2adjp
 
 
+anova(frod_prda_pars, step = 1000)
+anova(frod_prda_pars, by = "axis", step = 1000)
 
-# winter_plants_e_wis <- winter_plants_e_wis %>%
-#   select(colnames(winter_plants_c_wis))
-# 
-# (colnames(winter_plants_e_wis) == colnames(winter_plants_c_wis))
+frod_part <- varpart(focal_species, ~ WinterPCoAxis_1,  ~ SummerPCoAxis_2, ~year, data = pred_vals)
+plot(frod_part, digits = 2)
 
 ```
+
+Again, WinterPCoAxis_1 is the most important and explains the most variation (although less). 
+
+So, I think WinterPCoAxis_1 is important to the rodent community. 
