@@ -26,7 +26,7 @@ store_adjusted_data <- function(plant_data, rodent_data = NULL, treatment = 'con
     ungroup() %>%
     tidyr::spread('species', 'adjusted_total', fill = 0)
   
-  write.csv(rodent_data_adjusted, paste0('final-project/data/', treatment,
+  write.csv(rodent_data_adjusted, paste0('data/', treatment,
 '-rodents-adjusted.csv'),
             row.names = F)
   }
@@ -49,7 +49,7 @@ store_adjusted_data <- function(plant_data, rodent_data = NULL, treatment = 'con
     select(year, species, adjusted_n) %>%
     tidyr::spread(species, adjusted_n, fill = 0)
   
-  write.csv(plant_data_adjusted, paste0('final-project/data/', 
+  write.csv(plant_data_adjusted, paste0('data/', 
                                         season, '-',treatment,
                                         '-plants-adjusted.csv'), row.names = F)
   }
