@@ -1,0 +1,220 @@
+---
+title: "Everything On The Exclosures!"
+author: "Renata Diaz"
+date: "12/3/2018"
+output: github_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(dplyr)
+library(vegan)
+library(ca)
+```
+
+```{r get exclosure data, echo = F, eval =F}
+source('R/store_rodent_data.R')
+source('R/store_plant_data.R')
+source('R/store_adjusted_data.R')
+
+store_rodent_data(treatment = 'exclosure')
+store_plant_data()
+
+exclosure_rodents <- read.csv('data/exclosure-rodents-raw.csv', 
+                             stringsAsFactors = F)
+summer_plants_e <- read.csv('data/summer-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+winter_plants_e <-read.csv('data/winter-plants-raw-e.csv', 
+                            stringsAsFactors = F)
+
+all_plants_e <- rbind(summer_plants_e, winter_plants_e)
+
+store_adjusted_data(plant_data = all_plants_e, rodent_data = exclosure_rodents, focal_type = 'rodent', treatment = 'exclosure')
+
+store_adjusted_data(plant_data = summer_plants_e, focal_type = 'plant', season = 'summer', treatment = 'exclosure')
+store_adjusted_data(plant_data = winter_plants_e, focal_type = 'plant', season = 'winter', treatment = 'exclosure')
+
+rm(list=ls())
+
+```
+
+### Summer PCoA
+
+```{r summer x pcoa, echo = T} 
+summer_plants_e <- read.csv('data/summer-exclosure-plants-adjusted.csv',
+                          stringsAsFactors = F)
+
+summer_plants_e_wis <- vegan::wisconsin(summer_plants_e[,2:ncol(summer_plants_e)])
+
+summer_dist_mat <- vegdist(summer_plants_e_wis, 'bray')
+  
+summer_pcoa <- cmdscale(summer_dist_mat, k = nrow(summer_plants_e_wis) - 1, eig = T)
+
+
+  
+# Proportion of variance table 
+  eigenvalues <- summer_pcoa$eig[1:nrow(summer_plants_e_wis)-1]
+  propVar <- eigenvalues/sum(eigenvalues)
+  cumVar <- cumsum(propVar)
+  Summer_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+  
+  Summer_PCoA_Table[1:15,]
+  
+  
+# Scree plot:
+  plot(eigenvalues)
+  lines(lowess(eigenvalues))
+  
+  
+
+ordiplot(scores(summer_pcoa)[, c(1, 2)], type = "n", cex = 1, main = "Summer plant PCoA")
+## species scores not available
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+# Add species
+
+species_pc <- wascores(summer_pcoa$points[, 1:2], summer_plants_e_wis)
+text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
+  
+```
+
+```{r save summer x axes, echo = F, eval =F}
+summer_vals <- cbind(summer_plants_e$year, summer_pcoa$points[,1:3])
+  
+  season_names <- rep("SummerPCoAxis_", 3) %>%
+    paste0(1:3)
+  season_names <- c('year', season_names)
+  colnames(summer_vals) <- season_names
+  
+  
+  write.csv(summer_vals, 'models/ex_summer_pcoa_vals_3.csv', row.names = F)
+ 
+```
+
+### Winter PCoA
+
+```{r winter x pcoa, echo = T} 
+winter_plants_e <- read.csv('data/winter-exclosure-plants-adjusted.csv',
+                          stringsAsFactors = F)
+
+winter_plants_e_wis <- vegan::wisconsin(winter_plants_e[,2:ncol(winter_plants_e)])
+
+winter_dist_mat <- vegdist(winter_plants_e_wis, 'bray')
+  
+winter_pcoa <- cmdscale(winter_dist_mat, k = nrow(winter_plants_e_wis) - 1, eig = T)
+
+
+  
+# Proportion of variance table 
+  eigenvalues <- winter_pcoa$eig[1:nrow(winter_plants_e_wis)-1]
+  propVar <- eigenvalues/sum(eigenvalues)
+  cumVar <- cumsum(propVar)
+  winter_PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+  
+  winter_PCoA_Table[1:15,]
+  
+  
+# Scree plot:
+  plot(eigenvalues)
+  lines(lowess(eigenvalues))
+  
+  
+
+ordiplot(scores(winter_pcoa)[, c(1, 2)], type = "n", cex = 1, main = "winter plant PCoA")
+## species scores not available
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+# Add species
+
+species_pc <- wascores(winter_pcoa$points[, 1:2], winter_plants_e_wis)
+text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
+  
+```
+
+```{r save winter x axes, echo = F, eval =F}
+winter_vals <- cbind(winter_plants_e$year, winter_pcoa$points[,1:3])
+  
+  season_names <- rep("winterPCoAxis_", 3) %>%
+    paste0(1:3)
+  season_names <- c('year', season_names)
+  colnames(winter_vals) <- season_names
+  
+  
+  write.csv(winter_vals, 'models/ex_winter_pcoa_vals_3.csv', row.names = F)
+ 
+```
+
+``` {r partial RDA, echo = T}
+
+rodents <- read.csv('data/exclosure-rodents-adjusted.csv', 
+                    stringsAsFactors = F)
+
+summer_axes <- read.csv('models/ex_summer_pcoa_vals_3.csv', 
+                        stringsAsFactors = F)
+
+winter_axes <- read.csv('models/ex_winter_pcoa_vals_3.csv',
+                        stringsAsFactors = F)
+
+
+pred_vals <- inner_join(winter_axes, summer_axes, by = 'year')
+
+rodents <- filter(rodents, year %in% pred_vals$year) %>%
+  select(-year)
+
+pred_vals_noy <- select(pred_vals, -year)
+pred_vals_y <- select(pred_vals, year)
+
+rodents_hel <- decostand(rodents, 'hellinger')
+
+rodents_prda <- rda(rodents_hel ~ . + Condition(pred_vals_y$year), pred_vals_noy)
+
+R2 <- RsquareAdj(rodents_prda)$r.squared
+R2adj <- RsquareAdj(rodents_prda)$adj.r.squared
+
+R2
+R2adj
+
+
+anova(rodents_prda, step = 1000)
+anova(rodents_prda, by = "axis", step = 1000)
+
+
+```
+
+Find the most parsimonious model...
+
+```{r reduce vars part, echo = T}
+
+set.seed(11)
+step.forward <- ordiR2step(rda(rodents_hel ~ 1, data = pred_vals), scope = formula(rodents_prda), 
+                           R2scope = F, direction = "forward", pstep = 1000)
+
+# Most parsimonious is Call: rodents_hel ~ winterPCoAxis_1 + winterPCoAxis_2 + SummerPCoAxis_1 
+
+rod_prda_pars <- rda(rodents_hel ~ winterPCoAxis_1 + winterPCoAxis_2 + SummerPCoAxis_1 + Condition(pred_vals_y$year), pred_vals_noy)
+
+pR2p <- RsquareAdj(rod_prda_pars)$r.squared
+pR2adjp <- RsquareAdj(rod_prda_pars)$adj.r.squared
+
+pR2p
+pR2adjp
+
+
+anova(rod_prda_pars, step = 1000)
+anova(rod_prda_pars, by = "axis", step = 1000)
+
+
+```
+
+```{r  partial variance partitioning, echo = T}
+
+rod_ppart <- varpart(rodents_hel, ~ winterPCoAxis_1, ~  winterPCoAxis_2, ~SummerPCoAxis_1, ~ pred_vals_y$year, data = pred_vals_noy)
+rod_ppart
+
+plot(rod_ppart, digits = 2)
+```
+
