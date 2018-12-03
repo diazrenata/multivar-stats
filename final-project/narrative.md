@@ -215,6 +215,10 @@ text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
 
 ![](narrative_files/figure-markdown_github/winter%20pcoa-2.png)
 
+``` r
+write.csv(species_pc, 'models/winter_controls_species_scores.csv', row.names = T)
+```
+
 There seems to be an inflection point in the scree plot around axis 2 or 3. Since stopping at 2 would only capture 35% of variation, going to go for 3.
 
 -   Saved the first three axes for both PCoAs.
@@ -293,11 +297,11 @@ anova(rodents_prda, by = "axis", step = 1000)
     ## Model: rda(formula = rodents_hel ~ WinterPCoAxis_1 + WinterPCoAxis_2 + WinterPCoAxis_3 + SummerPCoAxis_1 + SummerPCoAxis_2 + SummerPCoAxis_3 + Condition(pred_vals_y$year), data = pred_vals_noy)
     ##          Df Variance       F Pr(>F)    
     ## RDA1      1 0.038889 16.6367  0.001 ***
-    ## RDA2      1 0.013465  5.7604  0.001 ***
-    ## RDA3      1 0.004915  2.1027  0.463    
-    ## RDA4      1 0.001929  0.8253  0.957    
-    ## RDA5      1 0.000995  0.4256  0.995    
-    ## RDA6      1 0.000630  0.2696  0.976    
+    ## RDA2      1 0.013465  5.7604  0.003 ** 
+    ## RDA3      1 0.004915  2.1027  0.496    
+    ## RDA4      1 0.001929  0.8253  0.952    
+    ## RDA5      1 0.000995  0.4256  0.998    
+    ## RDA6      1 0.000630  0.2696  0.982    
     ## Residual 19 0.044414                   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
@@ -1052,3 +1056,7 @@ plot(frod_part, digits = 2)
 ```
 
 ![](narrative_files/figure-markdown_github/prda%20focal%20spp-1.png)
+
+Again, WinterPCoAxis\_1 is the most important and explains the most variation (although less).
+
+So, I think WinterPCoAxis\_1 is important to the rodent community.

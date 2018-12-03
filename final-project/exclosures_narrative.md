@@ -176,6 +176,10 @@ text(species_pc, rownames(species_pc), cex = 0.7, col = "red")
 ![](exclosures_narrative_files/figure-markdown_github/winter%20x%20pcoa-2.png)
 
 ``` r
+write.csv(species_pc, 'models/winter_exclosures_species_scores.csv', row.names = T)
+```
+
+``` r
 rodents <- read.csv('data/exclosure-rodents-adjusted.csv', 
                     stringsAsFactors = F)
 
@@ -240,10 +244,10 @@ anova(rodents_prda, by = "axis", step = 1000)
     ##          Df Variance       F Pr(>F)    
     ## RDA1      1 0.048636 22.1971  0.001 ***
     ## RDA2      1 0.010603  4.8391  0.011 *  
-    ## RDA3      1 0.006234  2.8454  0.123    
-    ## RDA4      1 0.002426  1.1073  0.886    
+    ## RDA3      1 0.006234  2.8454  0.135    
+    ## RDA4      1 0.002426  1.1073  0.877    
     ## RDA5      1 0.000573  0.2614  1.000    
-    ## RDA6      1 0.000471  0.2150  0.997    
+    ## RDA6      1 0.000471  0.2150  0.994    
     ## Residual 21 0.046013                   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
